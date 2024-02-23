@@ -21,16 +21,27 @@ int clientPort;
 
 void *listener_thread(void *arg) {
     char buffer[MAX_BUFFER_SIZE];
-    socklen_t addr_len = sizeof(server_addr);
+    struct sockaddr_in recInfoAddr;
+
+    socklen_t addr_len = sizeof(recInfoAddr);
 
     while (1) {
         ssize_t received_bytes;
-        received_bytes = recvfrom(sockfd, (char *)buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr*)&server_addr, &addr_len);
-        buffer[received_bytes] = '\0';
+        
+        //pthread_mutex_lock(&mutex);
+        received_bytes = recvfrom(sockfd, (char *)buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr*)&recInfoAddr, &addr_len);
+        
+        //pthread_mutex_unlock(&mutex);
 
-        pthread_mutex_lock(&mutex);
-        printf("Received message from sender: %s\n", buffer);
-        pthread_mutex_unlock(&mutex);
+    
+        int terminateIDX = (received_bytes < MAX_BUFFER_SIZE) ? received_bytes : MAX_BUFFER_SIZE -1;
+        buffer[terminateIDX] = '\0';
+        printf("Received message from sender (%s:%d): %s\n", 
+               inet_ntoa(recInfoAddr.sin_addr), ntohs(recInfoAddr.sin_port), buffer);
+        
+        char* new_message = "Boy what the hell boy";
+        sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
+        sleep(1);
     }
 
     pthread_exit(NULL);
@@ -75,7 +86,7 @@ void setUpSockets(char* argv[])
 
     //printf("clientMachine full domain: %s\n", clientMachineName);
     char *clientIPAddress = getIPAddress(clientMachineName);
-    printf("the retrieved clientIPAddress for %s: %s\n", clientMachineName, clientIPAddress);
+    printf("Client IP Address for %s: %s\n", clientMachineName, clientIPAddress);
 
     // Creating socket file descriptor
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -86,7 +97,7 @@ void setUpSockets(char* argv[])
     // Setting up server address structure
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(serverPort);
 
        // Set up client address structure
@@ -101,6 +112,7 @@ void setUpSockets(char* argv[])
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+
 }
 
 int main(int argc, char *argv[]) {
