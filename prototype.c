@@ -65,12 +65,8 @@ void *sender_thread(void *arg) {
     pthread_exit(NULL);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <server_port> <client_machine_name> <client_port>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
+void setUpSockets(char* argv[])
+{
     // Convert command-line arguments to integers
     serverPort = atoi(argv[1]);
     strncpy(clientMachineName, argv[2], sizeof(clientMachineName));
@@ -93,12 +89,28 @@ int main(int argc, char *argv[]) {
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(serverPort);
 
+       // Set up client address structure
+    memset(&client_addr, 0, sizeof(client_addr));
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_addr.s_addr = inet_addr(clientIPAddress);
+    client_addr.sin_port = htons(clientPort);
+
     // Binding socket
     if (bind(sockfd, (const struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("bind failed");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <server_port> <client_machine_name> <client_port>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    setUpSockets(argv);
+
 
     pthread_t listener, sender;
 
