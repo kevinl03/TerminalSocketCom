@@ -3,12 +3,15 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <ifaddrs.h>
+#include <unistd.h> // For gethostname
+
 #include "addrinfo.h"
 
-#define MAX_BUFFER_SIZE 256
+#define MAX_HOSTNAME_SIZE 256
 
 char* getIPAddress(const char *input) {
-    char hostname[MAX_BUFFER_SIZE];
+    char hostname[MAX_HOSTNAME_SIZE];
     //snprintf(hostname, sizeof(hostname), "%s%s", input, ".csil.sfu.ca");
     strcpy(hostname, input);
 
@@ -53,6 +56,25 @@ char* getIPAddress(const char *input) {
     freeaddrinfo(result);
 
     return NULL;  // Return NULL if no IP address is found
+}
+
+void printCurrentMachineIPAddress() {
+    struct ifaddrs *addrs, *tmp;
+    getifaddrs(&addrs);
+
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+
+    printf("Hostname: %s\n", hostname);
+
+    for (tmp = addrs; tmp != NULL; tmp = tmp->ifa_next) {
+        if (tmp->ifa_addr != NULL && tmp->ifa_addr->sa_family == AF_INET) {
+            struct sockaddr_in *pAddr = (struct sockaddr_in *)tmp->ifa_addr;
+            printf("IP Address: %s\n", inet_ntoa(pAddr->sin_addr));
+        }
+    }
+
+    freeifaddrs(addrs);
 }
 
 // int main(int argc, char *argv[]) {
