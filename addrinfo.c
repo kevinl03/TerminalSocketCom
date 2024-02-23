@@ -3,6 +3,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include "addrinfo.h"
 
 #define MAX_BUFFER_SIZE 256
 
@@ -54,21 +55,21 @@ char* getIPAddress(const char *input) {
     return NULL;  // Return NULL if no IP address is found
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <hostname or IP address>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
+// int main(int argc, char *argv[]) {
+//     if (argc < 2) {
+//         fprintf(stderr, "Usage: %s <hostname or IP address>\n", argv[0]);
+//         exit(EXIT_FAILURE);
+//     }
 
-    // Get the IP address using the function
-    char *ipAddress = getIPAddress(argv[1]);
+//     // Get the IP address using the function
+//     char *ipAddress = getIPAddress(argv[1]);
 
-    if (ipAddress != NULL) {
-        printf("IP address: %s\n", ipAddress);
-        free(ipAddress);  // Free the memory allocated by getIPAddress
-    } else {
-        printf("Unable to retrieve IP address.\n");
-    }
+//     if (ipAddress != NULL) {
+//         printf("IP address: %s\n", ipAddress);
+//         free(ipAddress);  // Free the memory allocated by getIPAddress
+//     } else {
+//         printf("Unable to retrieve IP address.\n");
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
