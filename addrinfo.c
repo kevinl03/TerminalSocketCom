@@ -8,7 +8,8 @@
 
 char* getIPAddress(const char *input) {
     char hostname[MAX_BUFFER_SIZE];
-    snprintf(hostname, sizeof(hostname), "%s%s", input, ".csil.sfu.ca");
+    //snprintf(hostname, sizeof(hostname), "%s%s", input, ".csil.sfu.ca");
+    strcpy(hostname, input);
 
     struct addrinfo hints, *result, *rp;
 
