@@ -16,6 +16,8 @@
 struct sockaddr_in server_addr, client_addr;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+bool terminateThreads;
+
 int sockfd; 
 int serverPort;
 char clientMachineName[MAX_BUFFER_SIZE];
@@ -27,9 +29,16 @@ List* outGoingQueue;
 
 void *keyboard_input_thread(void* arg)
 {
-    while (1)
+    while (!terminateThreads)
     {
+        const char* specialChars = "!";
         char* userInput = getUserInput();
+        if (strcmp(userInput, specialChars) == 0)
+        {
+            printf("Detected !, terminating communication");
+            terminateThreads = true;
+            return NULL;
+        }
         //printf("Input Acquired %s\n", userInput);
         List_append(outGoingQueue, userInput);
     }
@@ -42,7 +51,7 @@ void *screen_printer_thread(void* arg)
         if (List_count(outGoingQueue) != 0)
         {
             char* message = List_remove(outGoingQueue);
-            printf("Found a message from the input %s", message);
+            printf("Found a message from the input thread %s\n", message);
         }
     }
 }
@@ -78,8 +87,7 @@ void *listener_thread(void *arg) {
 void *sender_thread(void *arg) {
     const char *base_message = "Hello from the sender!";
     int messages_sent = 1;
-
-    
+    sleep(2);
     
     while (1) {
 
@@ -149,6 +157,8 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    terminateThreads = false;
+
     printCurrentMachineIPAddress();
     setUpSockets(argv);
 
@@ -185,13 +195,14 @@ int main(int argc, char *argv[]) {
 
     //char* ret = getUserInput();
     //printf("userinput = %s", ret);
-    
-    printf("Threads finish ever?\n");
     // Wait for threads to finish (never reached in this example)
-    pthread_join(listener, NULL);
-    pthread_join(sender, NULL);
 
-    printf("Threads here?\n");
+    pthread_join(keyboard, NULL);
+
+    //pthread_join(listener, NULL);
+    //pthread_join(sender, NULL);
+
+    printf("Threads Terminated\n");
 
     // Close the socket (never reached in this example)
     close(sockfd);
