@@ -4,7 +4,11 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+
+
 #include "addrinfo.h"
+#include "userinput.h"
+#include "list.h"
 
 
 #define MAX_BUFFER_SIZE 1024
@@ -17,7 +21,31 @@ int serverPort;
 char clientMachineName[MAX_BUFFER_SIZE];
 int clientPort;
 
+List* inComingQueue;
+List* outGoingQueue;
 
+
+void *keyboard_input_thread(void* arg)
+{
+    while (1)
+    {
+        char* userInput = getUserInput();
+        //printf("Input Acquired %s\n", userInput);
+        List_append(outGoingQueue, userInput);
+    }
+}
+
+void *screen_printer_thread(void* arg)
+{
+    while (1)
+    {
+        if (List_count(outGoingQueue) != 0)
+        {
+            char* message = List_remove(outGoingQueue);
+            printf("Found a message from the input %s", message);
+        }
+    }
+}
 
 void *listener_thread(void *arg) {
     char buffer[MAX_BUFFER_SIZE];
@@ -38,10 +66,10 @@ void *listener_thread(void *arg) {
         buffer[terminateIDX] = '\0';
         printf("Received message from sender (%s:%d): %s\n", 
                inet_ntoa(recInfoAddr.sin_addr), ntohs(recInfoAddr.sin_port), buffer);
-        
-        char* new_message = "Boy what the hell boy";
-        sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
-        sleep(1);
+
+        //char* new_message = "Boy what the hell boy";
+        //sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
+        //sleep(1);
     }
 
     pthread_exit(NULL);
@@ -68,7 +96,7 @@ void *sender_thread(void *arg) {
         sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
         pthread_mutex_unlock(&mutex);
 
-        sleep(1); // Just for demonstration purposes, you might want to remove this in a real application
+        sleep(5); // Just for demonstration purposes, you might want to remove this in a real application
         messages_sent += 1;
         free(new_message);
     }
@@ -121,10 +149,14 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    printCurrentMachineIPAddress();
     setUpSockets(argv);
 
+    inComingQueue = List_create();
+    outGoingQueue = List_create();
 
-    pthread_t listener, sender;
+
+    pthread_t listener, sender, keyboard, screen_printer;
 
         // Create threads and pass necessary data
     if (pthread_create(&listener, NULL, listener_thread, NULL) != 0) {
@@ -138,6 +170,21 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+
+    if (pthread_create(&keyboard, NULL, keyboard_input_thread, NULL) != 0) {
+        perror("pthread_create for sender failed");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_create(&screen_printer, NULL, screen_printer_thread, NULL) != 0) {
+        perror("pthread_create for sender failed");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    //char* ret = getUserInput();
+    //printf("userinput = %s", ret);
     
     printf("Threads finish ever?\n");
     // Wait for threads to finish (never reached in this example)
