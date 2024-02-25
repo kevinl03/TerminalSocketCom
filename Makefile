@@ -17,8 +17,5 @@ addrinfo.o: addrinfo.c
 userinput.o: userinput.c
 	$(CC) $(CFLAGS) -c userinput.c
 
-list.o: list.o
-	$(CC) $(CFLAGS) -c list.o
-
 clean:
 	rm -f *.o s-talk
