@@ -45,10 +45,11 @@ void *screen_printer_thread(void *arg)
 {
     while (1)
     {
-        if (List_count(outGoingQueue) != 0)
+        if (List_count(inComingQueue) != 0)
         {
-            char *message = List_remove(outGoingQueue);
-            printf("Found a message from the input thread %s\n", message);
+            char *message = List_remove(inComingQueue);
+            printf("Printing Received Message%s\n", message);
+            free(message);
         }
     }
 }
@@ -74,6 +75,18 @@ void *listener_thread(void *arg)
         printf("Received message from sender (%s:%d): %s\n",
                inet_ntoa(recInfoAddr.sin_addr), ntohs(recInfoAddr.sin_port), buffer);
 
+        char* receievedMSG = (char *)malloc(strlen(buffer) + 1);
+
+        if (receievedMSG== NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+        }
+
+        // Copy the message into the allocated memory
+        strcpy(receievedMSG, buffer);
+
+        List_append(inComingQueue, receievedMSG);
+
         // char* new_message = "Boy what the hell boy";
         // sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
         // sleep(1);
@@ -84,29 +97,41 @@ void *listener_thread(void *arg)
 
 void *sender_thread(void *arg)
 {
-    const char *base_message = "Hello from the sender!";
+    const char *base_message = "Hello from the Kev!";
     int messages_sent = 1;
+    char* newestInput;
     sleep(2);
 
     while (1)
     {
+        if (List_count(outGoingQueue) != 0)
+        {
+            printf("Message has new data to be sent");
+            newestInput = List_trim(outGoingQueue);
 
-        // Calculate the length needed for the new message
-        int new_message_length = snprintf(NULL, 0, "%d %s", messages_sent, base_message);
+            sendto(sockfd, newestInput, strlen(newestInput), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
 
-        // Allocate memory for the new message
-        char *new_message = malloc(new_message_length + 1); // +1 for the null terminator
+            free(newestInput);
+        }
+        // else
+        // {
+        //     // Calculate the length needed for the new message
+        //     int new_message_length = snprintf(NULL, 0, "%d %s", messages_sent, base_message);
 
-        // Construct the new message
-        snprintf(new_message, new_message_length + 1, "%d %s", messages_sent, base_message);
-        pthread_mutex_lock(&mutex);
+        //     // Allocate memory for the new message
+        //     char *new_message = malloc(new_message_length + 1); // +1 for the null terminator
 
-        sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr *)&server_addr, sizeof(server_addr));
-        pthread_mutex_unlock(&mutex);
+        //     // Construct the new message
+        //     snprintf(new_message, new_message_length + 1, "%d %s", messages_sent, base_message);
+        //     pthread_mutex_lock(&mutex);
 
-        sleep(5); // Just for demonstration purposes, you might want to remove this in a real application
-        messages_sent += 1;
-        free(new_message);
+        //     sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
+        //     pthread_mutex_unlock(&mutex);
+
+        //     sleep(5); // Just for demonstration purposes, you might want to remove this in a real application
+        //     messages_sent += 1;
+        //     free(new_message);
+        // }
     }
 
     pthread_exit(NULL);
