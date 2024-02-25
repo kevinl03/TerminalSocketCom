@@ -1,16 +1,24 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99
+CFLAGS = -Wall -g
 
-# List of source files (excluding list.c)
-SOURCES = prototype.c addrinfo.c userinput.c list.o
+OBJS = prototype.o addrinfo.o userinput.o list.o
 
-# Output executable
-TARGET = proto
+all: s-talk
 
-all: $(TARGET)
+s-talk: $(OBJS)
+	$(CC) $(CFLAGS) -o s-talk $(OBJS)
 
-$(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) $^ -o $@
+prototype.o: prototype.c
+	$(CC) $(CFLAGS) -c prototype.c
+
+addrinfo.o: addrinfo.c
+	$(CC) $(CFLAGS) -c addrinfo.c
+
+userinput.o: userinput.c
+	$(CC) $(CFLAGS) -c userinput.c
+
+list.o: list.o
+	$(CC) $(CFLAGS) -c list.o
 
 clean:
-	rm -f $(TARGET)
+	rm -f *.o s-talk
