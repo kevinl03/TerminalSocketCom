@@ -182,6 +182,14 @@ void setUpSockets(char *argv[])
     }
 }
 
+void freeCharPointer(void* pItem) {
+    if (pItem != NULL) {
+        // Free the char* data
+        free((char*)pItem);
+    }
+}
+
+
 int main(int argc, char *argv[])
 {
     if (argc != 4)
@@ -244,6 +252,9 @@ int main(int argc, char *argv[])
 
     // Close the socket at the end
     close(sockfd);
+
+    List_free(inComingQueue, freeCharPointer);
+    List_free(outGoingQueue, freeCharPointer);
 
     return 0;
 }
