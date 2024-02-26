@@ -247,6 +247,7 @@ int main(int argc, char *argv[])
     pthread_join(screen_printer, NULL);
 
     pthread_cancel(listener);
+    pthread_join(listener, NULL);
 
     printf("Threads Terminated\n");
 
