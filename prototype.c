@@ -42,7 +42,7 @@ void *keyboard_input_thread(void *arg)
         List_append(outGoingQueue, userInput);
     }
 
-    printf("Terminating Keyboard_input_thread\n");
+    //printf("Terminating Keyboard_input_thread\n");
 }
 
 void *screen_printer_thread(void *arg)
@@ -82,8 +82,8 @@ void *listener_thread(void *arg)
         char* receievedMSG = (char *)malloc(strlen(buffer) + 1);
 
         if (receievedMSG== NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
+            fprintf(stderr, "Memory allocation failed\n");
+            exit(EXIT_FAILURE);
         }
 
         // Copy the message into the allocated memory
@@ -238,9 +238,11 @@ int main(int argc, char *argv[])
     pthread_join(sender, NULL);
     pthread_join(screen_printer, NULL);
 
+    pthread_cancel(listener);
+
     printf("Threads Terminated\n");
 
-    // Close the socket (never reached in this example)
+    // Close the socket at the end
     close(sockfd);
 
     return 0;
