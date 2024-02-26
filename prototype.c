@@ -34,6 +34,7 @@ void *keyboard_input_thread(void *arg)
         char *userInput = getUserInput();
         if (strcmp(userInput, specialChars) == 0)
         {
+            free(userInput);
             printf("Detected !, terminating communication\n");
             terminateThreads = true;
             return NULL;
@@ -181,6 +182,7 @@ void setUpSockets(char *argv[])
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+    free(clientIPAddress);
 }
 
 void freeCharPointer(void* pItem) {
