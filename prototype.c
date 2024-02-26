@@ -41,7 +41,7 @@ void *keyboard_input_thread(void *arg)
         // printf("Input Acquired %s\n", userInput);
         List_prepend(outGoingQueue, userInput);
     }
-
+    return NULL;
     //printf("Terminating Keyboard_input_thread\n");
 }
 
@@ -56,6 +56,7 @@ void *screen_printer_thread(void *arg)
             free(message);
         }
     }
+    return NULL;
 }
 
 void *listener_thread(void *arg)
