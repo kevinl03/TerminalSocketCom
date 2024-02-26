@@ -39,7 +39,7 @@ void *keyboard_input_thread(void *arg)
             return NULL;
         }
         // printf("Input Acquired %s\n", userInput);
-        List_append(outGoingQueue, userInput);
+        List_prepend(outGoingQueue, userInput);
     }
 
     //printf("Terminating Keyboard_input_thread\n");
@@ -51,8 +51,8 @@ void *screen_printer_thread(void *arg)
     {
         if (List_count(inComingQueue) != 0)
         {
-            char *message = List_remove(inComingQueue);
-            printf("Client Message%s\n", message);
+            char *message = List_trim(inComingQueue);
+            printf("Client Message: %s\n", message);
             free(message);
         }
     }
@@ -89,7 +89,7 @@ void *listener_thread(void *arg)
         // Copy the message into the allocated memory
         strcpy(receievedMSG, buffer);
 
-        List_append(inComingQueue, receievedMSG);
+        List_prepend(inComingQueue, receievedMSG);
 
         // char* new_message = "Boy what the hell boy";
         // sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
