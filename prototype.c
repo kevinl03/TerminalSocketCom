@@ -14,9 +14,11 @@
 struct sockaddr_in server_addr, client_addr;
 pthread_mutex_t mutexSocket = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexInComingQueue = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutexoutComingQueue = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexOutGoingQueue = PTHREAD_MUTEX_INITIALIZER;
 
 bool terminateThreads;
+
+static char* userInput;
 
 int sockfd;
 int serverPort;
@@ -26,21 +28,33 @@ int clientPort;
 List *inComingQueue;
 List *outGoingQueue;
 
+
+void CompareTermination(char* input)
+{
+    const char *cancellationChar = "!";
+    if (strcmp(input, cancellationChar) == 0)
+    {
+        printf("Detected !, terminating communication\n");
+        terminateThreads = true;
+        //return NULL;
+    }
+    return;
+    //return NULL
+}
+
 void *keyboard_input_thread(void *arg)
 {
     while (!terminateThreads)
     {
-        const char *specialChars = "!";
-        char *userInput = getUserInput();
-        if (strcmp(userInput, specialChars) == 0)
-        {
-            free(userInput);
-            printf("Detected !, terminating communication\n");
-            terminateThreads = true;
-            return NULL;
-        }
+       
+        //printf("retrieving user input");
+        userInput = getUserInput();
         // printf("Input Acquired %s\n", userInput);
+        //pthread_mutex_lock(&mutexOutGoingQueue);
+        //{
         List_prepend(outGoingQueue, userInput);
+        //}
+        //pthread_mutex_unlock(&mutexOutGoingQueue);
     }
     return NULL;
     //printf("Terminating Keyboard_input_thread\n");
@@ -52,7 +66,9 @@ void *screen_printer_thread(void *arg)
     {
         if (List_count(inComingQueue) != 0)
         {
+            //pthread_mutex_lock(&mutexInComingQueue);
             char *message = List_trim(inComingQueue);
+            //pthread_mutex_unlock(&mutexInComingQueue);
             printf("Client Message: %s\n", message);
             free(message);
         }
@@ -91,8 +107,10 @@ void *listener_thread(void *arg)
         // Copy the message into the allocated memory
         strcpy(receievedMSG, buffer);
 
+
         List_prepend(inComingQueue, receievedMSG);
 
+        CompareTermination(receievedMSG);
         // char* new_message = "Boy what the hell boy";
         // sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
         // sleep(1);
@@ -116,6 +134,8 @@ void *sender_thread(void *arg)
             newestInput = List_trim(outGoingQueue);
             
             sendto(sockfd, newestInput, strlen(newestInput), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
+
+            CompareTermination(newestInput);
 
             free(newestInput);
         }
@@ -244,11 +264,16 @@ int main(int argc, char *argv[])
     // printf("userinput = %s", ret);
     //  Wait for threads to finish (never reached in this example)
 
-    pthread_join(keyboard, NULL);
-    //pthread_join(listener, NULL);
+    
     pthread_join(sender, NULL);
     pthread_join(screen_printer, NULL);
 
+
+    //keyboard input is blocking so lets cancel this thread too
+    pthread_cancel(keyboard);
+    pthread_join(keyboard, NULL);
+    
+    //rcvfrom function is blocking so we need to cancel the thread
     pthread_cancel(listener);
     pthread_join(listener, NULL);
 
@@ -259,6 +284,7 @@ int main(int argc, char *argv[])
 
     List_free(inComingQueue, freeCharPointer);
     List_free(outGoingQueue, freeCharPointer);
+    free(userInput);
 
     return 0;
 }
