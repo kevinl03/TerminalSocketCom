@@ -12,7 +12,9 @@
 #define MAX_BUFFER_SIZE 1024
 
 struct sockaddr_in server_addr, client_addr;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexSocket = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexInComingQueue = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexoutComingQueue = PTHREAD_MUTEX_INITIALIZER;
 
 bool terminateThreads;
 
@@ -32,23 +34,25 @@ void *keyboard_input_thread(void *arg)
         char *userInput = getUserInput();
         if (strcmp(userInput, specialChars) == 0)
         {
-            printf("Detected !, terminating communication");
+            printf("Detected !, terminating communication\n");
             terminateThreads = true;
             return NULL;
         }
         // printf("Input Acquired %s\n", userInput);
         List_append(outGoingQueue, userInput);
     }
+
+    printf("Terminating Keyboard_input_thread\n");
 }
 
 void *screen_printer_thread(void *arg)
 {
-    while (1)
+    while (!terminateThreads)
     {
         if (List_count(inComingQueue) != 0)
         {
             char *message = List_remove(inComingQueue);
-            printf("Printing Received Message%s\n", message);
+            printf("Client Message%s\n", message);
             free(message);
         }
     }
@@ -61,7 +65,7 @@ void *listener_thread(void *arg)
 
     socklen_t addr_len = sizeof(recInfoAddr);
 
-    while (1)
+    while (!terminateThreads)
     {
         ssize_t received_bytes;
 
@@ -91,28 +95,29 @@ void *listener_thread(void *arg)
         // sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
         // sleep(1);
     }
-
-    pthread_exit(NULL);
+    return NULL;
+    //pthread_exit(NULL);
 }
 
 void *sender_thread(void *arg)
 {
-    const char *base_message = "Hello from the Kev!";
-    int messages_sent = 1;
+    //const char *base_message = "Hello from the Kev!";
+    //int messages_sent = 1;
     char* newestInput;
-    sleep(2);
+    //sleep(2);
 
-    while (1)
+    while (!terminateThreads)
     {
         if (List_count(outGoingQueue) != 0)
         {
             printf("Message has new data to be sent");
             newestInput = List_trim(outGoingQueue);
-
+            
             sendto(sockfd, newestInput, strlen(newestInput), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
 
             free(newestInput);
         }
+        //random testing
         // else
         // {
         //     // Calculate the length needed for the new message
@@ -133,8 +138,8 @@ void *sender_thread(void *arg)
         //     free(new_message);
         // }
     }
-
-    pthread_exit(NULL);
+    return NULL;
+    //pthread_exit(NULL);
 }
 
 void setUpSockets(char *argv[])
@@ -229,9 +234,9 @@ int main(int argc, char *argv[])
     //  Wait for threads to finish (never reached in this example)
 
     pthread_join(keyboard, NULL);
-
-    // pthread_join(listener, NULL);
-    // pthread_join(sender, NULL);
+    //pthread_join(listener, NULL);
+    pthread_join(sender, NULL);
+    pthread_join(screen_printer, NULL);
 
     printf("Threads Terminated\n");
 
