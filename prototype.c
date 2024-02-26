@@ -50,11 +50,11 @@ void *keyboard_input_thread(void *arg)
         //printf("retrieving user input");
         userInput = getUserInput();
         // printf("Input Acquired %s\n", userInput);
-        //pthread_mutex_lock(&mutexOutGoingQueue);
-        //{
+        pthread_mutex_lock(&mutexOutGoingQueue);
+        {
         List_prepend(outGoingQueue, userInput);
-        //}
-        //pthread_mutex_unlock(&mutexOutGoingQueue);
+        }
+        pthread_mutex_unlock(&mutexOutGoingQueue);
     }
     return NULL;
     //printf("Terminating Keyboard_input_thread\n");
@@ -66,9 +66,12 @@ void *screen_printer_thread(void *arg)
     {
         if (List_count(inComingQueue) != 0)
         {
-            //pthread_mutex_lock(&mutexInComingQueue);
-            char *message = List_trim(inComingQueue);
-            //pthread_mutex_unlock(&mutexInComingQueue);
+            char* message;
+            pthread_mutex_lock(&mutexInComingQueue);
+            {
+                message = List_trim(inComingQueue);
+            }
+            pthread_mutex_unlock(&mutexInComingQueue);
             printf("Client Message: %s\n", message);
             free(message);
         }
@@ -86,11 +89,12 @@ void *listener_thread(void *arg)
     while (!terminateThreads)
     {
         ssize_t received_bytes;
-
-        // pthread_mutex_lock(&mutex);
-        received_bytes = recvfrom(sockfd, (char *)buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&recInfoAddr, &addr_len);
-
-        // pthread_mutex_unlock(&mutex);
+        
+        pthread_mutex_lock(&mutexSocket);
+        {    
+            received_bytes = recvfrom(sockfd, (char *)buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&recInfoAddr, &addr_len);
+        }
+        pthread_mutex_unlock(&mutexSocket);
 
         int terminateIDX = (received_bytes < MAX_BUFFER_SIZE) ? received_bytes : MAX_BUFFER_SIZE - 1;
         buffer[terminateIDX] = '\0';
@@ -107,8 +111,11 @@ void *listener_thread(void *arg)
         // Copy the message into the allocated memory
         strcpy(receievedMSG, buffer);
 
-
-        List_prepend(inComingQueue, receievedMSG);
+        pthread_mutex_lock(&mutexInComingQueue);
+        {
+            List_prepend(inComingQueue, receievedMSG);
+        }
+        pthread_mutex_unlock(&mutexInComingQueue);
 
         CompareTermination(receievedMSG);
         // char* new_message = "Boy what the hell boy";
@@ -131,9 +138,18 @@ void *sender_thread(void *arg)
         if (List_count(outGoingQueue) != 0)
         {
             printf("Message has new data to be sent");
-            newestInput = List_trim(outGoingQueue);
-            
+
+            pthread_mutex_lock(&mutexOutGoingQueue);
+            {
+                newestInput = List_trim(outGoingQueue);
+            }
+            pthread_mutex_unlock(&mutexOutGoingQueue);
+
+               
             sendto(sockfd, newestInput, strlen(newestInput), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
+            
+            
+            
 
             CompareTermination(newestInput);
 
@@ -207,7 +223,6 @@ void setUpSockets(char *argv[])
 
 void freeCharPointer(void* pItem) {
     if (pItem != NULL) {
-        // Free the char* data
         free((char*)pItem);
     }
 }
