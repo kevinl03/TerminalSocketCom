@@ -21,8 +21,6 @@ pthread_cond_t condOutGoingQueue = PTHREAD_COND_INITIALIZER;
 
 bool terminateThreads; // Ssignal threads to terminate
 
-// static char* userInput; // Store user input
-
 int sockfd;
 int serverPort;
 char clientMachineName[MAX_BUFFER_SIZE];
