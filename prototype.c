@@ -19,79 +19,74 @@ pthread_cond_t condInComingQueue = PTHREAD_COND_INITIALIZER;
 pthread_cond_t condOutGoingQueue = PTHREAD_COND_INITIALIZER;
 
 
-bool terminateThreads;
+bool terminateThreads; // Ssignal threads to terminate
 
-static char* userInput;
+// static char* userInput; // Store user input
 
 int sockfd;
 int serverPort;
 char clientMachineName[MAX_BUFFER_SIZE];
 int clientPort;
 
-List *inComingQueue;
-List *outGoingQueue;
+List *inComingQueue; // Store incoming messages
+List *outGoingQueue; // Store outgoing messages
 
 
 
-void isTermination(char* input)
+void isTermination(char* input) // Check if the input is a termination signal ("!")
 {
     const char *cancellationChar = "!";
     if (strcmp(input, cancellationChar) == 0)
     {
-        printf("Detected !, terminating communication\n");
-        terminateThreads = true;
+        terminateThreads = true; // Signal threads to terminate
         pthread_cond_broadcast(&condInComingQueue);
         pthread_cond_broadcast(&condOutGoingQueue);
-        //return NULL;
     }
     return;
-    //return NULL
 }
 
-void *keyboard_input_thread(void *arg)
+void *keyboard_input_thread(void *arg) // Get user input and add it to the outgoing queue
 {
+    char* userInput;
     while (!terminateThreads)
     {
-       
-        //printf("retrieving user input");
         userInput = getUserInput();
-        // printf("User Message: %s\n", userInput);
 
         pthread_mutex_lock(&mutexOutGoingQueue);
         {
-        List_prepend(outGoingQueue, userInput);
-        pthread_cond_signal(&condOutGoingQueue); // Signal that a new message is ready to send
+            List_prepend(outGoingQueue, userInput);
+            pthread_cond_signal(&condOutGoingQueue); // Signal that a new message is ready to send
         }
         pthread_mutex_unlock(&mutexOutGoingQueue);
-        free(userInput);
     }
     return NULL;
-    //printf("Terminating Keyboard_input_thread\n");
 }
 
-void *screen_printer_thread(void *arg)
+void *screen_printer_thread(void *arg) // Print incoming messages
 {
+    char* message;
     while (!terminateThreads)
     {
-        if (List_count(inComingQueue) != 0)
+        if (List_count(inComingQueue) != 0) // If there are messages to display
         {
-            char* message;
             pthread_mutex_lock(&mutexInComingQueue);
-            while (List_count(inComingQueue) == 0) { // Prevents busy wait
-                pthread_cond_wait(&condInComingQueue, &mutexInComingQueue); // Wait for new messages to display
+            {
+                while (List_count(inComingQueue) == 0) { // Prevents busy wait
+                    pthread_cond_wait(&condInComingQueue, &mutexInComingQueue); // Wait for new messages to display
+                }
+                message = List_trim(inComingQueue); // Get the message from the queue
             }
-            message = List_trim(inComingQueue);
             pthread_mutex_unlock(&mutexInComingQueue);
 
-            printf("Client Message: %s\n", message);
-
+            printf("Client Message: %s\n", message); // Format and print the message
+            free(message); // Free the memory allocated by malloc
 
         }
     }
     return NULL;
 }
 
-void *listener_thread(void *arg)
+void *listener_thread(void *arg) // Listen for incoming messages
 {
     char buffer[MAX_BUFFER_SIZE];
     struct sockaddr_in recInfoAddr;
@@ -105,14 +100,11 @@ void *listener_thread(void *arg)
         pthread_mutex_lock(&mutexSocket);
         {    
             received_bytes = recvfrom(sockfd, (char *)buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&recInfoAddr, &addr_len);
-            
         }
         pthread_mutex_unlock(&mutexSocket);
 
         int terminateIDX = (received_bytes < MAX_BUFFER_SIZE) ? received_bytes : MAX_BUFFER_SIZE - 1;
         buffer[terminateIDX] = '\0';
-        // printf("Received message from sender (%s:%d): %s\n",
-        //        inet_ntoa(recInfoAddr.sin_addr), ntohs(recInfoAddr.sin_port), buffer);
 
         char* receievedMSG = (char *)malloc(strlen(buffer) + 1);
 
@@ -121,8 +113,7 @@ void *listener_thread(void *arg)
             exit(EXIT_FAILURE);
         }
 
-        // Copy the message into the allocated memory
-        strcpy(receievedMSG, buffer);
+        strcpy(receievedMSG, buffer);  // Copy the message into the allocated memory
 
         pthread_mutex_lock(&mutexInComingQueue);
         {
@@ -131,72 +122,40 @@ void *listener_thread(void *arg)
         }
         pthread_mutex_unlock(&mutexInComingQueue);
 
-        isTermination(receievedMSG);
-        // char* new_message = "Boy what the hell boy";
-        // sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
-        // sleep(1);
+        isTermination(receievedMSG); // Check if the message is a termination signal
+
     }
     return NULL;
-    //pthread_exit(NULL);
 }
 
-void *sender_thread(void *arg)
+void *sender_thread(void *arg) // Send messages
 {
-    //const char *base_message = "Hello from the Kev!";
-    //int messages_sent = 1;
-    char* newestInput;
-    //sleep(2);
+    char* newestInput; // Store the newest message to send
 
     while (!terminateThreads)
     {
-        if (List_count(outGoingQueue) != 0)
+        if (List_count(outGoingQueue) != 0) // If there are messages to send
         {
-            // printf("Message has new data to be sent");
-
             pthread_mutex_lock(&mutexOutGoingQueue);
-            while (List_count(outGoingQueue) == 0) { // Prevents busy wait
-                pthread_cond_wait(&condOutGoingQueue, &mutexOutGoingQueue); // Wait for new messages to send
+            {
+                while (List_count(outGoingQueue) == 0) { // Prevents busy wait
+                    pthread_cond_wait(&condOutGoingQueue, &mutexOutGoingQueue); // Wait for new messages to send
+                }
+                newestInput = List_trim(outGoingQueue);
             }
-            newestInput = List_trim(outGoingQueue);
             pthread_mutex_unlock(&mutexOutGoingQueue);
 
-
-               
             sendto(sockfd, newestInput, strlen(newestInput), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
-            
-            
-            
 
-            isTermination(newestInput);
+            isTermination(newestInput); // Check if the message is a termination signal
 
-            free(newestInput);
+            free(newestInput); // Free the memory allocated by getUserInput
         }
-        //random testing
-        // else
-        // {
-        //     // Calculate the length needed for the new message
-        //     int new_message_length = snprintf(NULL, 0, "%d %s", messages_sent, base_message);
-
-        //     // Allocate memory for the new message
-        //     char *new_message = malloc(new_message_length + 1); // +1 for the null terminator
-
-        //     // Construct the new message
-        //     snprintf(new_message, new_message_length + 1, "%d %s", messages_sent, base_message);
-        //     pthread_mutex_lock(&mutex);
-
-        //     sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
-        //     pthread_mutex_unlock(&mutex);
-
-        //     sleep(5); // Just for demonstration purposes, you might want to remove this in a real application
-        //     messages_sent += 1;
-        //     free(new_message);
-        // }
     }
     return NULL;
-    //pthread_exit(NULL);
 }
 
-void setUpSockets(char *argv[])
+void setUpSockets(char *argv[]) // Set up the server and client sockets
 {
     // Convert command-line arguments to integers
     serverPort = atoi(argv[1]);
@@ -204,9 +163,8 @@ void setUpSockets(char *argv[])
     strcat(clientMachineName, ".csil.sfu.ca");
     clientPort = atoi(argv[3]);
 
-    // printf("clientMachine full domain: %s\n", clientMachineName);
     char *clientIPAddress = getIPAddress(clientMachineName);
-    printf("Client IP Address for %s: %s\n", clientMachineName, clientIPAddress);
+    // printf("Client IP Address for %s: %s\n", clientMachineName, clientIPAddress);
 
     // Creating socket file descriptor
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
@@ -237,24 +195,22 @@ void setUpSockets(char *argv[])
     free(clientIPAddress);
 }
 
-void freeCharPointer(void* pItem) {
+void freeCharPointer(void* pItem) { // Free the memory allocated by malloc
     if (pItem != NULL) {
         free((char*)pItem);
     }
 }
 
-
 int main(int argc, char *argv[])
 {
-    if (argc != 4)
-    {
-        fprintf(stderr, "Usage: %s <server_port> <client_machine_name> <client_port>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
+    // if (argc != 4)
+    // {
+    //     fprintf(stderr, "Usage: %s <server_port> <client_machine_name> <client_port>\n", argv[0]);
+    //     exit(EXIT_FAILURE);
+    // }
 
-    terminateThreads = false;
+    terminateThreads = false; // Initialize the termination signal
 
-    printCurrentMachineIPAddress();
     setUpSockets(argv);
 
     inComingQueue = List_create();
@@ -291,11 +247,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // char* ret = getUserInput();
-    // printf("userinput = %s", ret);
-    //  Wait for threads to finish (never reached in this example)
-
-    
+    // Wait for threads to finish    
     pthread_join(sender, NULL);
     pthread_join(screen_printer, NULL);
 
@@ -308,12 +260,10 @@ int main(int argc, char *argv[])
     pthread_cancel(listener);
     pthread_join(listener, NULL);
 
-    printf("Threads Terminated\n");
-
     // Close the socket at the end
     close(sockfd);
 
-
+    // Clean up
     pthread_cond_destroy(&condInComingQueue);
     pthread_cond_destroy(&condOutGoingQueue);
 
@@ -323,7 +273,6 @@ int main(int argc, char *argv[])
 
     List_free(inComingQueue, freeCharPointer);
     List_free(outGoingQueue, freeCharPointer);
-    // free(userInput);
 
     return 0;
 }
