@@ -84,7 +84,6 @@ void *screen_printer_thread(void *arg)
             pthread_mutex_unlock(&mutexInComingQueue);
 
             printf("Client Message: %s\n", message);
-            free(message);
 
 
         }
@@ -324,7 +323,7 @@ int main(int argc, char *argv[])
 
     List_free(inComingQueue, freeCharPointer);
     List_free(outGoingQueue, freeCharPointer);
-    free(userInput);
+    // free(userInput);
 
     return 0;
 }
