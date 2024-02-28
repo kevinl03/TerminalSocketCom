@@ -15,6 +15,9 @@ struct sockaddr_in server_addr, client_addr;
 pthread_mutex_t mutexSocket = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexInComingQueue = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexOutGoingQueue = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condInComingQueue = PTHREAD_COND_INITIALIZER;
+pthread_cond_t condOutGoingQueue = PTHREAD_COND_INITIALIZER;
+
 
 bool terminateThreads;
 
@@ -29,13 +32,16 @@ List *inComingQueue;
 List *outGoingQueue;
 
 
-void CompareTermination(char* input)
+
+void isTermination(char* input)
 {
     const char *cancellationChar = "!";
     if (strcmp(input, cancellationChar) == 0)
     {
         printf("Detected !, terminating communication\n");
         terminateThreads = true;
+        pthread_cond_broadcast(&condInComingQueue);
+        pthread_cond_broadcast(&condOutGoingQueue);
         //return NULL;
     }
     return;
@@ -49,12 +55,15 @@ void *keyboard_input_thread(void *arg)
        
         //printf("retrieving user input");
         userInput = getUserInput();
-        // printf("Input Acquired %s\n", userInput);
+        // printf("User Message: %s\n", userInput);
+
         pthread_mutex_lock(&mutexOutGoingQueue);
         {
         List_prepend(outGoingQueue, userInput);
+        pthread_cond_signal(&condOutGoingQueue); // Signal that a new message is ready to send
         }
         pthread_mutex_unlock(&mutexOutGoingQueue);
+        free(userInput);
     }
     return NULL;
     //printf("Terminating Keyboard_input_thread\n");
@@ -68,12 +77,16 @@ void *screen_printer_thread(void *arg)
         {
             char* message;
             pthread_mutex_lock(&mutexInComingQueue);
-            {
-                message = List_trim(inComingQueue);
+            while (List_count(inComingQueue) == 0) { // Prevents busy wait
+                pthread_cond_wait(&condInComingQueue, &mutexInComingQueue); // Wait for new messages to display
             }
+            message = List_trim(inComingQueue);
             pthread_mutex_unlock(&mutexInComingQueue);
+
             printf("Client Message: %s\n", message);
             free(message);
+
+
         }
     }
     return NULL;
@@ -93,13 +106,14 @@ void *listener_thread(void *arg)
         pthread_mutex_lock(&mutexSocket);
         {    
             received_bytes = recvfrom(sockfd, (char *)buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&recInfoAddr, &addr_len);
+            
         }
         pthread_mutex_unlock(&mutexSocket);
 
         int terminateIDX = (received_bytes < MAX_BUFFER_SIZE) ? received_bytes : MAX_BUFFER_SIZE - 1;
         buffer[terminateIDX] = '\0';
-        printf("Received message from sender (%s:%d): %s\n",
-               inet_ntoa(recInfoAddr.sin_addr), ntohs(recInfoAddr.sin_port), buffer);
+        // printf("Received message from sender (%s:%d): %s\n",
+        //        inet_ntoa(recInfoAddr.sin_addr), ntohs(recInfoAddr.sin_port), buffer);
 
         char* receievedMSG = (char *)malloc(strlen(buffer) + 1);
 
@@ -114,10 +128,11 @@ void *listener_thread(void *arg)
         pthread_mutex_lock(&mutexInComingQueue);
         {
             List_prepend(inComingQueue, receievedMSG);
+            pthread_cond_signal(&condInComingQueue); // Signal that a new message has arrived
         }
         pthread_mutex_unlock(&mutexInComingQueue);
 
-        CompareTermination(receievedMSG);
+        isTermination(receievedMSG);
         // char* new_message = "Boy what the hell boy";
         // sendto(sockfd, new_message, strlen(new_message), 0, (const struct sockaddr*)&server_addr, sizeof(server_addr));
         // sleep(1);
@@ -137,13 +152,15 @@ void *sender_thread(void *arg)
     {
         if (List_count(outGoingQueue) != 0)
         {
-            printf("Message has new data to be sent");
+            // printf("Message has new data to be sent");
 
             pthread_mutex_lock(&mutexOutGoingQueue);
-            {
-                newestInput = List_trim(outGoingQueue);
+            while (List_count(outGoingQueue) == 0) { // Prevents busy wait
+                pthread_cond_wait(&condOutGoingQueue, &mutexOutGoingQueue); // Wait for new messages to send
             }
+            newestInput = List_trim(outGoingQueue);
             pthread_mutex_unlock(&mutexOutGoingQueue);
+
 
                
             sendto(sockfd, newestInput, strlen(newestInput), 0, (const struct sockaddr *)&client_addr, sizeof(client_addr));
@@ -151,7 +168,7 @@ void *sender_thread(void *arg)
             
             
 
-            CompareTermination(newestInput);
+            isTermination(newestInput);
 
             free(newestInput);
         }
@@ -296,6 +313,14 @@ int main(int argc, char *argv[])
 
     // Close the socket at the end
     close(sockfd);
+
+
+    pthread_cond_destroy(&condInComingQueue);
+    pthread_cond_destroy(&condOutGoingQueue);
+
+    pthread_mutex_destroy(&mutexSocket);
+    pthread_mutex_destroy(&mutexInComingQueue);
+    pthread_mutex_destroy(&mutexOutGoingQueue);
 
     List_free(inComingQueue, freeCharPointer);
     List_free(outGoingQueue, freeCharPointer);

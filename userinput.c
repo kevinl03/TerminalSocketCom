@@ -6,7 +6,6 @@
 char* getUserInput() {
     char userInput[100]; // Assuming a maximum input length of 100 characters
 
-    printf("\n>>>>");
 
     if (fgets(userInput, sizeof(userInput), stdin) != NULL) {
         // Remove the newline character at the end of the input

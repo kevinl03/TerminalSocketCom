@@ -18,4 +18,4 @@ userinput.o: userinput.c
 	$(CC) $(CFLAGS) -c userinput.c
 
 clean:
-	rm -f *.o s-talk
+	rm -f prototype.o addrinfo.o userinput.o s-talk
