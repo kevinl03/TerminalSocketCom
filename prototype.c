@@ -19,7 +19,7 @@ pthread_cond_t condInComingQueue = PTHREAD_COND_INITIALIZER;
 pthread_cond_t condOutGoingQueue = PTHREAD_COND_INITIALIZER;
 
 
-bool terminateThreads; // Ssignal threads to terminate
+bool terminateThreads; // Signal threads to terminate
 
 int sockfd;
 int serverPort;
